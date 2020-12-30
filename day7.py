@@ -1,5 +1,5 @@
 import itertools
-from intcode_computer import run, run_as_generator
+from intcode_computer import run, Program
 
 INPUT = "input"
 
@@ -25,19 +25,15 @@ def main() -> None:
         current_amplifier = 0
         amplifiers = []
         for phase_setting in order:
-            gen = run_as_generator(program[:], [phase_setting])
-            next(gen)
-            amplifiers.append(gen)
+            p = Program(program[:], [phase_setting])
+            amplifiers.append(p)
 
         while True:
-            try:
-                signal = amplifiers[current_amplifier].send(signal)
-            except StopIteration:
+            amplifiers[current_amplifier].send_input(signal)
+            new_signal = amplifiers[current_amplifier].next_output_or_end()
+            if new_signal is None:
                 break
-            try:
-                next(amplifiers[current_amplifier])
-            except StopIteration:
-                pass
+            signal = new_signal
             current_amplifier = (current_amplifier + 1) % len(amplifiers)
         max_output = signal if max_output is None else max(signal, max_output)
     print(max_output)

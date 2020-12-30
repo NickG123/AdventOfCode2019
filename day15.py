@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
-from intcode_computer import run_as_generator
+from intcode_computer import Program
 from typing import Deque, Iterable, List, Optional, Tuple
 
 INPUT = "input"
@@ -68,17 +68,15 @@ def neighbours(pos: Point) -> List[Tuple[Point, Movement]]:
 class Robot:
     def __init__(self, program: List[int]) -> None:
         self.position = Point(0, 0)
-        self.program = run_as_generator(program)
+        self.program = Program(program)
         self.status: Optional[Status] = None
         self.grid = defaultdict(lambda: Cell.Unknown, {Point(0, 0): Cell.Floor})
         self.to_explore = deque([p for p, m in neighbours(self.position)])
 
-        next(self.program)
-
     def move(self, move: Movement) -> None:
         vector = VECTORS[move]
-        self.status = Status(self.program.send(move.value))
-        next(self.program)
+        self.program.send_input(move.value)
+        self.status = Status(self.program.next_output())
         if self.status == Status.Wall:
             self.grid[self.position + vector] = Cell.Wall
         else:

@@ -1,6 +1,6 @@
 import operator
-from collections import defaultdict
-from typing import Callable, Dict, Generator, Iterator, List, Optional, Tuple
+from collections import defaultdict, deque
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 from enum import Enum
 
 
@@ -22,15 +22,18 @@ def get_param_mode(param_modes: int, param_num: int) -> int:
 
 
 class Program(Iterator[int]):
-    def __init__(self, program: List[int]) -> None:
+    def __init__(self, program: List[int], input_data: Optional[List[int]] = None) -> None:
         self.program = program
         self.extra_memory: Dict[int, int] = defaultdict(int)
         self.pointer = 0
         self.relative_base = 0
+        self.input = deque(input_data if input_data is not None else [])
+        self.ended = False
 
     def __next__(self) -> int:
-        result = self[self.pointer]
-        self.pointer += 1
+        result = self.next_output_or_end()
+        if result is None:
+            raise StopIteration()
         return result
 
     def __getitem__(self, idx: int) -> int:
@@ -45,10 +48,18 @@ class Program(Iterator[int]):
         else:
             self.extra_memory[idx] = val
 
+    def peek(self) -> int:
+        return self[self.pointer]
+
+    def next_mem(self) -> int:
+        item = self[self.pointer]
+        self.pointer += 1
+        return item
+
     def read(self, num: int) -> List[int]:
         result = []
         for _ in range(num):
-            result.append(next(self))
+            result.append(self.next_mem())
         return result
 
     def jump(self, pointer: int) -> None:
@@ -84,6 +95,53 @@ class Program(Iterator[int]):
 
     def get_output_arg(self, param_modes: int) -> int:
         return self.get_args(param_modes, 0, 1)[0]
+
+    def next_command(self) -> Tuple[bool, Optional[int]]:
+        if self.ended:
+            raise Exception("Tried to run after program ended")
+        input_data = None
+        item = self.next_mem()
+
+        param_mode, op_val = divmod(item, 100)
+        op = OpCode(op_val)
+        if op == OpCode.END:
+            self.ended = True
+            return (True, None)
+        elif op == OpCode.INPUT:
+            if len(self.input) == 0:
+                raise Exception("Program asked for input but none was available")
+            input_data = self.input.popleft()
+        output = op_dispatch[op](self, param_mode, input_data)
+        return (False, output)
+
+    def next_output_or_end(self) -> Optional[int]:
+        while True:
+            reached_end, output = self.next_command()
+            if reached_end:
+                return None
+            if output is not None:
+                return output
+
+    def run_until_input(self) -> Iterator[int]:
+        while self.peek() % 100 != OpCode.INPUT.value:
+            reached_end, output = self.next_command()
+            if reached_end:
+                return
+            elif output is not None:
+                yield output
+
+    def run_to_end(self) -> None:
+        while self.next_output_or_end() is not None:
+            pass
+
+    def next_output(self) -> int:
+        result = self.next_output_or_end()
+        if result is None:
+            raise Exception("Expected output but reached end of program")
+        return result
+
+    def send_input(self, input_data: int) -> None:
+        self.input.append(input_data)
 
 
 FuncType = Callable[..., Optional[int]]
@@ -130,28 +188,10 @@ op_dispatch: Dict[OpCode, Callable[[Program, int, int], Optional[int]]] = {
 }
 
 
-def run_as_generator(program_lines: List[int], input_list: Optional[List[int]] = None) -> Generator[Optional[int], int, None]:
-    input_it = iter(input_list if input_list is not None else [])
-    program = Program(program_lines)
-    input_data = None
-
-    for item in program:
-        param_mode, op_val = divmod(item, 100)
-        op = OpCode(op_val)
-        if op == OpCode.END:
-            break
-        elif op == OpCode.INPUT:
-            input_data = next(input_it, None)
-            if input_data is None:
-                input_data = yield
-        output = op_dispatch[op](program, param_mode, input_data)
-        if output is not None:
-            yield output
-
-
 def run(program_lines: List[int], input_list: Optional[List[int]] = None) -> Optional[int]:
-    return next(run_as_generator(program_lines, input_list))
+    result = run_to_end(program_lines, input_list)
+    return result[-1] if result else None
 
 
 def run_to_end(program_lines: List[int], input_list: Optional[List[int]] = None) -> List[int]:
-    return list(run_as_generator(program_lines, input_list))
+    return list(Program(program_lines, input_list))

@@ -1,5 +1,5 @@
 from enum import Enum
-from intcode_computer import run_as_generator
+from intcode_computer import Program
 from typing import Dict, Tuple
 
 INPUT = "input"
@@ -57,7 +57,7 @@ def main() -> None:
     with open(INPUT, "r") as fin:
         program_data = [int(x) for x in fin.readline().split(",")]
     program_data[0] = 2
-    program = run_as_generator(program_data)
+    program = Program(program_data)
 
     board = Board()
     for x, y, tile in zip(program, program, program):
@@ -67,20 +67,17 @@ def main() -> None:
     print(board)
 
     while True:
-        try:
-            x = next(program)
-        except StopIteration:
+        output = program.run_until_input()
+        for x, y, val in zip(output, output, output):
+            if x == -1 and y == 0:
+                board.score = val
+            else:
+                board.set_tile(x, y, Tile(val))
+        print(board)
+        if program.ended:
             break
-        if x is None:
-            print(board)
-            x = program.send(board.next_move())
-        y = next(program)
-        val = next(program)
-        if x == -1 and y == 0:
-            board.score = val
-        else:
-            tile = Tile(val)
-            board.set_tile(x, y, tile)
+        program.send_input(board.next_move())
+        program.next_command()
     print(board)
 
 

@@ -1,5 +1,5 @@
-from intcode_computer import run_as_generator
-from typing import Iterator, Generator, List, Optional, Tuple
+from intcode_computer import Program
+from typing import Iterator, List, Tuple
 
 INPUT = "input"
 
@@ -12,7 +12,7 @@ def find_intersections(image: str) -> Iterator[Tuple[int, int]]:
                 yield x, y
 
 
-def readlines(program: Iterator[int]) -> Iterator[str]:
+def readlines(program: Program) -> Iterator[str]:
     while True:
         line = []
         while (c := chr(next(program))) != "\n":
@@ -20,7 +20,7 @@ def readlines(program: Iterator[int]) -> Iterator[str]:
         yield "".join(line)
 
 
-def read_image(program: Iterator[int]) -> str:
+def read_image(program: Program) -> str:
     result: List[str] = []
     for line in readlines(program):
         if not line.strip():
@@ -29,12 +29,9 @@ def read_image(program: Iterator[int]) -> str:
     raise Exception("Expected blank line")
 
 
-def write_text(program: Generator[Optional[int], int, None], s: str) -> int:
-    assert next(program) is None
+def write_text(program: Program, s: str) -> None:
     for c in s + "\n":
-        result = program.send(ord(c))
-        if result is not None:
-            return result
+        program.send_input(ord(c))
 
 
 def main() -> None:
@@ -42,7 +39,7 @@ def main() -> None:
         program_data = [int(c) for c in fin.readline().strip().split(",")]
 
     program_data[0] = 2
-    program = run_as_generator(program_data[:])
+    program = Program(program_data[:])
     image = read_image(program)
     print(image)
     intersections = find_intersections(image)
@@ -57,6 +54,7 @@ def main() -> None:
     write_text(program, "R,8,R,10,L,6")
     next(readlines(program))
     write_text(program, "n")
+    next(program)
 
     image = read_image(program)
     print(image)

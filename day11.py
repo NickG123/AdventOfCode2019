@@ -1,6 +1,6 @@
 from collections import defaultdict
 from enum import Enum
-from intcode_computer import run_as_generator
+from intcode_computer import Program
 from typing import Dict, List, Tuple
 
 INPUT = "input"
@@ -39,24 +39,22 @@ class Robot:
 
 def run(program_data: List[int], white_start: bool) -> Dict[Tuple[int, int], bool]:
     robot = Robot()
-    program = run_as_generator(program_data)
+    program = Program(program_data)
     tiles: Dict[Tuple[int, int], bool] = defaultdict(bool)
     if white_start:
         tiles[(0, 0)] = True
 
-    next(program)
-    try:
-        while True:
-            color = int(tiles[robot.pos])
-            new_color = program.send(color)
-            turn = next(program)
-            next(program)
+    while True:
+        color = int(tiles.get(robot.pos, False))
+        program.send_input(color)
+        new_color = program.next_output_or_end()
+        if new_color is None:
+            return tiles
+        turn = program.next_output()
 
-            tiles[robot.pos] = bool(new_color)
-            robot.rotate(True if turn == 1 else False)
-            robot.move()
-    except StopIteration:
-        return tiles
+        tiles[robot.pos] = bool(new_color)
+        robot.rotate(True if turn == 1 else False)
+        robot.move()
 
 
 def borders(data: List[Tuple[int, int]]) -> Tuple[int, int, int, int]:
