@@ -143,6 +143,28 @@ class Program(Iterator[int]):
     def send_input(self, input_data: int) -> None:
         self.input.append(input_data)
 
+    def write_string(self, input_data: str) -> None:
+        for c in input_data + "\n":
+            self.send_input(ord(c))
+
+    def read_line(self) -> Optional[str]:
+        line: List[str] = []
+        while True:
+            c_val = self.next_output_or_end()
+            if c_val is None:
+                return None
+            c = chr(c_val)
+            if c == "\n":
+                return "".join(line)
+            line.append(c)
+
+    def read_lines(self) -> Iterator[str]:
+        while True:
+            s = self.read_line()
+            if s is None:
+                break
+            yield s
+
 
 FuncType = Callable[..., Optional[int]]
 

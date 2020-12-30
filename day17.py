@@ -12,26 +12,13 @@ def find_intersections(image: str) -> Iterator[Tuple[int, int]]:
                 yield x, y
 
 
-def readlines(program: Program) -> Iterator[str]:
-    while True:
-        line = []
-        while (c := chr(next(program))) != "\n":
-            line.append(c)
-        yield "".join(line)
-
-
 def read_image(program: Program) -> str:
     result: List[str] = []
-    for line in readlines(program):
+    for line in program.read_lines():
         if not line.strip():
             return "\n".join(result)
         result.append(line)
     raise Exception("Expected blank line")
-
-
-def write_text(program: Program, s: str) -> None:
-    for c in s + "\n":
-        program.send_input(ord(c))
 
 
 def main() -> None:
@@ -44,16 +31,16 @@ def main() -> None:
     print(image)
     intersections = find_intersections(image)
     print(sum(x * y for x, y in intersections))
-    next(readlines(program))
-    write_text(program, "A,A,B,C,C,A,C,B,C,B")
-    next(readlines(program))
-    write_text(program, "L,4,L,4,L,6,R,10,L,6")
-    next(readlines(program))
-    write_text(program, "L,12,L,6,R,10,L,6")
-    next(readlines(program))
-    write_text(program, "R,8,R,10,L,6")
-    next(readlines(program))
-    write_text(program, "n")
+    program.read_line()
+    program.write_string("A,A,B,C,C,A,C,B,C,B")
+    program.read_line()
+    program.write_string("L,4,L,4,L,6,R,10,L,6")
+    program.read_line()
+    program.write_string("L,12,L,6,R,10,L,6")
+    program.read_line()
+    program.write_string("R,8,R,10,L,6")
+    program.read_line()
+    program.write_string("n")
     next(program)
 
     image = read_image(program)
