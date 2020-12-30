@@ -1,6 +1,7 @@
 from __future__ import annotations
 from collections import defaultdict, deque
 from dataclasses import dataclass
+from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
 INPUT = "input"
@@ -32,18 +33,25 @@ VECTORS = [
 ]
 
 
+class NeighbourType(Enum):
+    InnerPortal = 1
+    Direct = 0
+    OuterPortal = -1
+
+
 class Cell:
     def __init__(self, p: Point) -> None:
         self.p = p
-        self.neighbours: List[Cell] = []
+        self.neighbours: List[Tuple[Cell, NeighbourType]] = []
 
     def compute_neighbours(self, grid: Grid) -> None:
         for vector in VECTORS:
             neighbour_pos = self.p + vector
             neighbour = grid.cells.get(neighbour_pos)
             if neighbour is not None:
-                self.neighbours.append(neighbour)
+                self.neighbours.append((neighbour, NeighbourType.Direct))
 
+        portal_exit = grid.get_portal_exit(self.p)
         if (portal_exit := grid.get_portal_exit(self.p)) is not None:
             self.neighbours.append(portal_exit)
 
@@ -76,7 +84,11 @@ class Grid:
                         label, anchor = result
                         self.portals[label].append(anchor)
                         if label not in {START, END}:
-                            self.labels[anchor] = label
+                            if p.x == 1 or p.x == len(row) - 2 or p.y == 1 or p.y == len(data) - 2:
+                                portal_type = NeighbourType.OuterPortal
+                            else:
+                                portal_type = NeighbourType.InnerPortal
+                            self.labels[anchor] = (label, portal_type)
         self.start = self.cells[self.portals.pop(START)[0]]
         self.end = self.cells[self.portals.pop(END)[0]]
 
@@ -85,33 +97,37 @@ class Grid:
         for cell in self.cells.values():
             cell.compute_neighbours(self)
 
-    def find_path(self) -> int:
+    def find_path(self, recursive: bool) -> int:
         seen = set()
-        to_visit = deque([(self.start, 0)])
+        to_visit = deque([(self.start, 0, 0)])
         while True:
-            node, distance = to_visit.popleft()
-            if node in seen:
+            node, depth, distance = to_visit.popleft()
+            if (node, depth) in seen:
                 continue
-            if node == self.end:
+            if node == self.end and depth == 0:
                 return distance
 
-            to_visit.extend([(n, distance + 1) for n in node.neighbours])
-            seen.add(node)
+            if recursive:
+                to_visit.extend([(n, depth + neighbour_type.value, distance + 1) for n, neighbour_type in node.neighbours if neighbour_type != NeighbourType.OuterPortal or depth != 0])
+            else:
+                to_visit.extend([(n, depth, distance + 1) for n, neighbour_type in node.neighbours])
+            seen.add((node, depth))
 
-    def get_portal_exit(self, entrance: Point) -> Optional[Cell]:
-        label = self.labels.get(entrance)
-        if label is None:
+    def get_portal_exit(self, entrance: Point) -> Optional[Tuple[Cell, NeighbourType]]:
+        if entrance not in self.labels:
             return None
+        label, portal_type = self.labels[entrance]
         exits = self.portals[label]
         exit_position = next(e for e in exits if e != entrance)
-        return self.cells[exit_position]
+        return self.cells[exit_position], portal_type
 
 
 def main() -> None:
     with open(INPUT, "r") as fin:
         grid = Grid([l.strip("\n") for l in fin.readlines()])
 
-    print(grid.find_path())
+    print(grid.find_path(False))
+    print(grid.find_path(True))
 
 
 if __name__ == "__main__":
