@@ -130,6 +130,11 @@ class Program(Iterator[int]):
             elif output is not None:
                 yield output
 
+    def consume_all_input(self) -> Iterator[int]:
+        while len(self.input) > 0:
+            yield from self.run_until_input()
+            self.next_command()
+
     def run_to_end(self) -> None:
         while self.next_output_or_end() is not None:
             pass
